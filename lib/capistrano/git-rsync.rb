@@ -1,17 +1,13 @@
 require 'capistrano/scm/plugin'
 
 class Capistrano::SCM
-  class Rsync < ::Capistrano::SCM::Plugin
+  class GitRsync < ::Capistrano::SCM::Plugin
     def set_defaults
        # command-line options for rsync
       set_if_empty :rsync_options, %w[--archive --delete --exclude=.git*]
 
       # Local cache (Git checkout will be happen here, resulting files then get rsynced to the remote server)
-      set_if_empty :rsync_local_cache, 'tmp/.capistrano-rsync-deploy'
-
-      # Remote cache on the server. Will be synced with the local cache before each release, and then used as
-      # source for the release. Saves needing to transfer all the source files for each release.
-      set_if_empty :rsync_remote_cache, 'rsync-deploy'
+      set_if_empty :rsync_local_cache, "/usr/local/src/capistrano-rsync-deploy/fetch(:application)/#{fetch(:stage)}"
     end
 
     def define_tasks
@@ -22,25 +18,21 @@ class Capistrano::SCM
             If a :rsync_deploy_build_path is set, only that relative path will \
             be copied to the release path.
         DESC
-        task create_release: :update_remote_cache do
+        task create_release: :update_local_cache do
           on release_roles :all do
-            execute :rsync, '--archive', "#{fetch(:deploy_to)}/#{fetch(:rsync_remote_cache)}/#{fetch(:rsync_deploy_build_path)}", "#{release_path}/"
-          end
-        end
 
-        desc <<-DESC
-            Update remote cache of application source code.
+            # Select oldest release number
+            can_be_discarded_release_number = capture(:ls, "-xt", releases_path).split.sort.first
 
-            This will be rsynced to :rsync_remote_cache, using rsync options set in \
-            :rsync_options
-        DESC
-        task update_remote_cache: :update_local_cache do
-          on release_roles :all do |role|
-            host_spec = role.hostname
-            host_spec = "#{role.user}@#{host_spec}" if role.user
-            run_locally do
-              execute :rsync, *fetch(:rsync_options), "#{fetch(:rsync_local_cache)}/", "#{host_spec}:#{fetch(:deploy_to)}/#{fetch(:rsync_remote_cache)}/"
+            if can_be_discarded_release_number
+              discarding_release_path = releases_path.join(can_be_discarded_release_number)
+
+              # Set oldest release to this time release target.
+              # Better than starting empty directory, In many cases.
+              execute :mv, discarding_release_path, release_path
             end
+
+            execute :rsync, '--archive', "#{fetch(:rsync_local_cache)}/", "#{release_path}/"
           end
         end
 
@@ -50,12 +42,14 @@ class Capistrano::SCM
             This will be checked out to :rsync_local_cache.
         DESC
         task :update_local_cache do
-          run_locally do
-            unless File.exist?("#{fetch(:rsync_local_cache)}/.git")
-              FileUtils.mkdir_p(fetch(:rsync_local_cache))
-              execute :git, :clone, '--quiet', repo_url, fetch(:rsync_local_cache)
-            end
+          on release_roles :all do |role|
             within fetch(:rsync_local_cache) do
+              repo_exists = (capture "if [ -e #{fetch(:rsync_local_cache)}/.git ];then echo yes;fi")
+              if repo_exists != 'yes'
+                execute :mkdir, '-p', fetch(:rsync_local_cache)
+                execute :git, :clone, '--quiet', repo_url, fetch(:rsync_local_cache)
+              end
+
               execute :git, :fetch, '--quiet', '--all', '--prune'
               execute :git, :checkout, fetch(:branch)
               execute :git, :reset, '--quiet', '--hard', "origin/#{fetch(:branch)}"
@@ -69,7 +63,7 @@ class Capistrano::SCM
             By default, this is the latest version of the code on branch :branch.
         DESC
         task :set_current_revision do
-          run_locally do
+          on release_roles :all do |role|
             within fetch(:rsync_local_cache) do
               set :current_revision, capture(:git, "rev-list --max-count=1 #{fetch(:branch)}")
             end
