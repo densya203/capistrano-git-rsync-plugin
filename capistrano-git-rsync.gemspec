@@ -3,16 +3,16 @@ lib = File.expand_path("../lib", __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 Gem::Specification.new do |spec|
-  spec.name          = "capistrano-rsync-plugin"
-  spec.version       = "0.2.0"
-  spec.authors       = ["Tom Armitage", "Stefan Daschek"]
-  spec.email         = ["tom@infovore.org"]
+  spec.name          = "capistrano-git-rsync-plugin"
+  spec.version       = "0.0.1"
+  spec.authors       = ["Tad Kam"]
+  spec.email         = ["densya203@skult.jp"]
 
-  spec.summary       = %q{Plugin for Capitsrano 3.7+ to deploy with rsync}
-  spec.description   = %q{Plugin for Capistrano 3.7+ to deploy with rsync, based on a Gist by Stefan Daschek.
+  spec.summary       = %q{Plugin for Capitsrano 3.7+ to deploy with git and rsync }
+  spec.description   = %q{Plugin for Capistrano 3.7+ to deploy with git and rsync. Customized for Having Many Files Site.
 
   Ideally suited to deploying static sites made with static-site-generators.}
-  spec.homepage      = "https://github.com/infovore/capistrano-rsync-plugin"
+  spec.homepage      = "https://github.com/densya203/capistrano-git-rsync-plugin"
   spec.license       = "MIT"
 
   spec.files         = `git ls-files`.split($/)
