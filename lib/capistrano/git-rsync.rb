@@ -5,7 +5,7 @@ class Capistrano::SCM
     def set_defaults
       # command-line options for rsync
       # Without -t option (timestamp)
-      set_if_empty :rsync_options, %w[-rlpgoD --human-readable --verbose --delete --exclude=.git*]
+      set_if_empty :rsync_options, %w[--archive --human-readable --verbose --delete --exclude=.git*]
 
       # Local cache (Git checkout will be happen here, resulting files then get rsynced to the remote server)
       set_if_empty :git_checkout_to, "/usr/local/src/capistrano-rsync-deploy/fetch(:application)/#{fetch(:stage)}"
