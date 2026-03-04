@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.authors       = ["Tad Kam"]
   spec.email         = ["densya203@skult.jp"]
 
-  spec.summary       = %q{Plugin for Capitsrano 3.7+ to deploy with git and rsync }
+  spec.summary       = %q{Plugin for Capistrano 3.7+ to deploy with git and rsync }
   spec.description   = %q{Plugin for Capistrano 3.7+ to deploy with git and rsync. Customized for Having Many Files Site.
 
   Ideally suited to deploying static sites made with static-site-generators.}
