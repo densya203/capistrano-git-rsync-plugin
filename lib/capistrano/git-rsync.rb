@@ -9,6 +9,10 @@ class Capistrano::SCM
 
       # Local cache (Git checkout will happen here, resulting files then get rsynced to the remote server)
       set_if_empty :git_checkout_to, "/usr/local/src/capistrano-rsync-deploy/#{fetch(:application)}/#{fetch(:stage)}"
+
+      # shallow clone depth for git clone and fetch. This is to prevent the local cache from having too much history,
+      # which can make git operations slow.
+      set_if_empty :git_shallow_clone_depth, 10
     end
 
     def define_tasks
@@ -43,13 +47,19 @@ class Capistrano::SCM
         DESC
         task :update_local_cache do
           on release_roles :all do
+            # Set the depth for git operations from the variable
+            depth = fetch(:git_shallow_clone_depth).to_s
+
             unless test("[ -e #{fetch(:git_checkout_to)}/.git ]")
               execute :mkdir, '-p', fetch(:git_checkout_to)
-              execute :git, :clone, '--quiet', repo_url, fetch(:git_checkout_to)
+
+              # Specify --depth when cloning
+              execute :git, :clone, '--depth', depth, '--quiet', repo_url, fetch(:git_checkout_to)
             end
 
             within fetch(:git_checkout_to) do
-              execute :git, :fetch, '--quiet', '--all', '--prune'
+              # Specify --depth when fetching to prevent history from becoming too deep
+              execute :git, :fetch, '--depth', depth, '--quiet', 'origin', fetch(:branch)
               execute :git, :checkout, fetch(:branch)
               execute :git, :reset, '--quiet', '--hard', "origin/#{fetch(:branch)}"
             end
