@@ -7,8 +7,8 @@ class Capistrano::SCM
       # Without -t option (timestamp)
       set_if_empty :rsync_options, %w[--archive --human-readable --verbose --delete --exclude=.git*]
 
-      # Local cache (Git checkout will be happen here, resulting files then get rsynced to the remote server)
-      set_if_empty :git_checkout_to, "/usr/local/src/capistrano-rsync-deploy/fetch(:application)/#{fetch(:stage)}"
+      # Local cache (Git checkout will happen here, resulting files then get rsynced to the remote server)
+      set_if_empty :git_checkout_to, "/usr/local/src/capistrano-rsync-deploy/#{fetch(:application)}/#{fetch(:stage)}"
     end
 
     def define_tasks
@@ -21,7 +21,7 @@ class Capistrano::SCM
           on release_roles :all do
 
             # Select oldest release number
-            can_be_discarded_release_number = capture(:ls, "-xt", releases_path).split.sort.first
+            can_be_discarded_release_number = capture(:ls, releases_path).split.sort.first
 
             if can_be_discarded_release_number
               discarding_release_path = releases_path.join(can_be_discarded_release_number)
@@ -42,14 +42,13 @@ class Capistrano::SCM
             This will be checked out to :git_checkout_to.
         DESC
         task :update_local_cache do
-          on release_roles :all do |role|
-            within fetch(:git_checkout_to) do
-              repo_exists = (capture "if [ -e #{fetch(:git_checkout_to)}/.git ];then echo yes;fi")
-              if repo_exists != 'yes'
-                execute :mkdir, '-p', fetch(:git_checkout_to)
-                execute :git, :clone, '--quiet', repo_url, fetch(:git_checkout_to)
-              end
+          on release_roles :all do
+            unless test("[ -e #{fetch(:git_checkout_to)}/.git ]")
+              execute :mkdir, '-p', fetch(:git_checkout_to)
+              execute :git, :clone, '--quiet', repo_url, fetch(:git_checkout_to)
+            end
 
+            within fetch(:git_checkout_to) do
               execute :git, :fetch, '--quiet', '--all', '--prune'
               execute :git, :checkout, fetch(:branch)
               execute :git, :reset, '--quiet', '--hard', "origin/#{fetch(:branch)}"
@@ -63,9 +62,9 @@ class Capistrano::SCM
             By default, this is the latest version of the code on branch :branch.
         DESC
         task :set_current_revision do
-          on release_roles :all do |role|
+          on release_roles(:all).first do
             within fetch(:git_checkout_to) do
-              set :current_revision, capture(:git, "rev-list --max-count=1 #{fetch(:branch)}")
+              set :current_revision, capture(:git, 'rev-list', '--max-count=1', fetch(:branch))
             end
           end
         end
