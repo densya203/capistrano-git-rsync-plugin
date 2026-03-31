@@ -24,6 +24,7 @@ class Capistrano::SCM
         DESC
         task create_release: :update_local_cache do
           on release_roles :all do
+            checkout_to = fetch(:git_checkout_to)
 
             # Select oldest release number
             can_be_discarded_release_number = capture(:ls, releases_path).split.sort.first
@@ -37,7 +38,8 @@ class Capistrano::SCM
             end
 
             # Without -t option (timestamp)
-            execute :rsync, *(fetch(:rsync_options) + fetch(:rsync_extra_options)), "#{fetch(:git_checkout_to)}/", "#{release_path}/"
+            rsync_opts = [*fetch(:rsync_options), *fetch(:rsync_extra_options)]
+            execute :rsync, *rsync_opts, "#{checkout_to}/", "#{release_path}/"
           end
         end
 
@@ -48,20 +50,21 @@ class Capistrano::SCM
         DESC
         task :update_local_cache do
           on release_roles :all do
-            # Set the depth for git operations from the variable
+            checkout_to = fetch(:git_checkout_to)
+            branch = fetch(:branch)
             depth = fetch(:git_shallow_clone_depth).to_s
 
-            unless test("[ -e #{fetch(:git_checkout_to)}/.git ]")
-              execute :mkdir, '-p', fetch(:git_checkout_to)
+            unless test("[ -e #{checkout_to}/.git ]")
+              execute :mkdir, '-p', checkout_to
 
               # Specify --depth when cloning
-              execute :git, :clone, '--depth', depth, '--quiet', repo_url, fetch(:git_checkout_to)
+              execute :git, :clone, '--depth', depth, '--quiet', repo_url, checkout_to
             end
 
-            within fetch(:git_checkout_to) do
+            within checkout_to do
               # Specify --depth when fetching to prevent history from becoming too deep
-              execute :git, :fetch, '--depth', depth, '--quiet', 'origin', "+refs/heads/#{fetch(:branch)}:refs/remotes/origin/#{fetch(:branch)}"
-              execute :git, :checkout, '-B', fetch(:branch), "origin/#{fetch(:branch)}"
+              execute :git, :fetch, '--depth', depth, '--quiet', 'origin', branch
+              execute :git, :reset, '--hard', 'FETCH_HEAD'
             end
           end
         end
@@ -73,7 +76,8 @@ class Capistrano::SCM
         DESC
         task :set_current_revision do
           on release_roles(:all).first do
-            within fetch(:git_checkout_to) do
+            checkout_to = fetch(:git_checkout_to)
+            within checkout_to do
               set :current_revision, capture(:git, 'rev-parse', 'HEAD')
             end
           end
