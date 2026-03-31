@@ -5,7 +5,7 @@ class Capistrano::SCM
     def set_defaults
       # command-line options for rsync
       # Without -t option (timestamp)
-      set_if_empty :rsync_options, %w[--archive --human-readable --verbose --delete --exclude=.git* --checksum]
+      set_if_empty :rsync_options, %w[--archive --human-readable --verbose --delete --exclude=.git*]
       set_if_empty :rsync_extra_options, []
 
       # Local cache (Git checkout will happen here, resulting files then get rsynced to the remote server)
@@ -62,7 +62,6 @@ class Capistrano::SCM
               # Specify --depth when fetching to prevent history from becoming too deep
               execute :git, :fetch, '--depth', depth, '--quiet', 'origin', "+refs/heads/#{fetch(:branch)}:refs/remotes/origin/#{fetch(:branch)}"
               execute :git, :checkout, '-B', fetch(:branch), "origin/#{fetch(:branch)}"
-              execute :git, :reset, '--quiet', '--hard', "origin/#{fetch(:branch)}"
             end
           end
         end
@@ -75,7 +74,7 @@ class Capistrano::SCM
         task :set_current_revision do
           on release_roles(:all).first do
             within fetch(:git_checkout_to) do
-              set :current_revision, capture(:git, 'rev-list', '--max-count=1', fetch(:branch))
+              set :current_revision, capture(:git, 'rev-parse', 'HEAD')
             end
           end
         end
